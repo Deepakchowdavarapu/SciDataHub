@@ -6,8 +6,8 @@ import XLSX from 'xlsx';
 import fs from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import connectDB from '../shared/utils/database.js';
-import Submission from '../shared/models/Submission.js';
+import connectDB from '../../shared/utils/database.js';
+import Submission from '../../shared/models/Submission.js';
 
 const app = express();
 const PORT = process.env.DATA_SERVICE_PORT || 3002;
@@ -22,14 +22,14 @@ connectDB();
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
+  destination: (req: express.Request, file: Express.Multer.File, cb: (error: Error | null, destination: string) => void) => {
     const uploadDir = 'uploads/submissions';
     if (!fs.existsSync(uploadDir)) {
       fs.mkdirSync(uploadDir, { recursive: true });
     }
     cb(null, uploadDir);
   },
-  filename: (req, file, cb) => {
+  filename: (req: express.Request, file: Express.Multer.File, cb: (error: Error | null, filename: string) => void) => {
     const uniqueName = `${uuidv4()}-${Date.now()}-${file.originalname}`;
     cb(null, uniqueName);
   }
@@ -38,21 +38,22 @@ const storage = multer.diskStorage({
 const upload = multer({
   storage,
   limits: {
-    fileSize: parseInt(process.env.MAX_FILE_SIZE) || 10 * 1024 * 1024 // 10MB default
+    fileSize: parseInt(process.env.MAX_FILE_SIZE || '10000000') // 10MB default
   },
-  fileFilter: (req, file, cb) => {
+  fileFilter: (req: express.Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
     const allowedTypes = ['text/csv', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'];
     if (allowedTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error('Only CSV and Excel files are allowed'), false);
+      cb(null, false);
     }
   }
 });
 
 // Data validation functions
-const validateSubmissionData = (data, dataType) => {
-  const errors = [];
+type ValidationError = { field: string; message: string; severity: string };
+const validateSubmissionData = (data: unknown, dataType: string): { isValid: boolean; errors: ValidationError[] } => {
+  const errors: ValidationError[] = [];
 
   if (!data || (Array.isArray(data) && data.length === 0)) {
     errors.push({
@@ -64,8 +65,7 @@ const validateSubmissionData = (data, dataType) => {
   }
 
   if (dataType === 'form_data') {
-    // Validate form data structure
-    if (typeof data !== 'object') {
+    if (typeof data !== 'object' || Array.isArray(data) || data === null) {
       errors.push({
         field: 'data',
         message: 'Form data must be an object',
@@ -73,7 +73,6 @@ const validateSubmissionData = (data, dataType) => {
       });
     }
   } else if (dataType === 'csv_upload' || dataType === 'excel_upload') {
-    // Validate array data structure
     if (!Array.isArray(data)) {
       errors.push({
         field: 'data',
@@ -81,7 +80,6 @@ const validateSubmissionData = (data, dataType) => {
         severity: 'error'
       });
     } else {
-      // Check if all records have consistent structure
       if (data.length > 0) {
         const firstRowKeys = Object.keys(data[0]);
         data.forEach((row, index) => {
@@ -104,26 +102,26 @@ const validateSubmissionData = (data, dataType) => {
   };
 };
 
-const parseCSVFile = (filePath) => {
+const parseCSVFile = (filePath: string): Promise<Record<string, unknown>[]> => {
   return new Promise((resolve, reject) => {
-    const results = [];
+    const results: Record<string, unknown>[] = [];
     fs.createReadStream(filePath)
       .pipe(csv())
-      .on('data', (data) => results.push(data))
+      .on('data', (data: Record<string, unknown>) => results.push(data))
       .on('end', () => resolve(results))
-      .on('error', (error) => reject(error));
+      .on('error', (error: unknown) => reject(error));
   });
 };
 
-const parseExcelFile = (filePath) => {
+const parseExcelFile = (filePath: string): Record<string, unknown>[] => {
   try {
     const workbook = XLSX.readFile(filePath);
     const sheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[sheetName];
     const data = XLSX.utils.sheet_to_json(worksheet);
-    return data;
+    return data as Record<string, unknown>[];
   } catch (error) {
-    throw new Error(`Failed to parse Excel file: ${error.message}`);
+    throw new Error(`Failed to parse Excel file: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 };
 
@@ -202,8 +200,8 @@ app.post('/api/data/upload', upload.single('file'), async (req, res) => {
       isPublic
     } = req.body;
 
-    let parsedData;
-    let dataType;
+    let parsedData: Record<string, unknown>[] = [];
+    let dataType: string = '';
 
     // Parse file based on type
     if (req.file.mimetype === 'text/csv') {
@@ -255,13 +253,13 @@ app.post('/api/data/upload', upload.single('file'), async (req, res) => {
     });
   } catch (error) {
     console.error('File upload error:', error);
-    
+
     // Clean up uploaded file in case of error
     if (req.file && fs.existsSync(req.file.path)) {
       fs.unlinkSync(req.file.path);
     }
-    
-    res.status(500).json({ message: 'File processing failed', error: error.message });
+
+    res.status(500).json({ message: 'File processing failed', error: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
@@ -281,41 +279,44 @@ app.get('/api/data/submissions', async (req, res) => {
       sortOrder = 'desc'
     } = req.query;
 
-    let query = {};
-    
+    const query: Record<string, unknown> = {};
+
     if (category) query.category = category;
     if (status) query.status = status;
     if (submittedBy) query.submittedBy = submittedBy;
     if (dataType) query.dataType = dataType;
     if (isPublic !== undefined) query.isPublic = isPublic === 'true';
-    
+
     if (search) {
       query.$or = [
         { title: { $regex: search, $options: 'i' } },
         { description: { $regex: search, $options: 'i' } },
-        { tags: { $in: [new RegExp(search, 'i')] } }
+        { tags: { $in: [typeof search === 'string' ? new RegExp(search, 'i') : search] } }
       ];
     }
 
-    const sort = {};
-    sort[sortBy] = sortOrder === 'desc' ? -1 : 1;
+    const sort: Record<string, 1 | -1> = {};
+    sort[typeof sortBy === 'string' ? sortBy : 'createdAt'] = sortOrder === 'desc' ? -1 : 1;
+
+    const pageNum = typeof page === 'string' ? parseInt(page, 10) : Number(page);
+    const limitNum = typeof limit === 'string' ? parseInt(limit, 10) : Number(limit);
 
     const submissions = await Submission.find(query)
       .populate('submittedBy', 'firstName lastName email organization')
       .populate('reviewedBy', 'firstName lastName email')
-      .limit(limit * 1)
-      .skip((page - 1) * limit)
+      .limit(limitNum)
+      .skip((pageNum - 1) * limitNum)
       .sort(sort);
 
     const total = await Submission.countDocuments(query);
 
     res.json({
       submissions,
-      totalPages: Math.ceil(total / limit),
-      currentPage: parseInt(page),
+      totalPages: Math.ceil(total / limitNum),
+      currentPage: pageNum,
       total,
-      hasNext: page * limit < total,
-      hasPrev: page > 1
+      hasNext: pageNum * limitNum < total,
+      hasPrev: pageNum > 1
     });
   } catch (error) {
     console.error('Submissions fetch error:', error);
@@ -345,14 +346,14 @@ app.get('/api/data/submissions/:id', async (req, res) => {
 app.put('/api/data/submissions/:id', async (req, res) => {
   try {
     const { title, description, category, data, metadata, tags, isPublic } = req.body;
-    
+
     const submission = await Submission.findById(req.params.id);
     if (!submission) {
       return res.status(404).json({ message: 'Submission not found' });
     }
 
     // Re-validate data if it's being updated
-    let validationResult = { isValid: true, errors: [] };
+    let validationResult: { isValid: boolean; errors: ValidationError[] } = { isValid: true, errors: [] };
     if (data) {
       validationResult = validateSubmissionData(data, submission.dataType);
     }
@@ -396,7 +397,7 @@ app.delete('/api/data/submissions/:id', async (req, res) => {
     // Delete associated files
     if (submission.fileUrls && submission.fileUrls.length > 0) {
       submission.fileUrls.forEach(file => {
-        const filePath = path.join('uploads/submissions', file.filename);
+        const filePath = path.join('uploads/submissions', file.filename as string);
         if (fs.existsSync(filePath)) {
           fs.unlinkSync(filePath);
         }
@@ -419,7 +420,7 @@ app.get('/api/data/stats', async (req, res) => {
     const pendingSubmissions = await Submission.countDocuments({ status: 'pending' });
     const approvedSubmissions = await Submission.countDocuments({ status: 'approved' });
     const rejectedSubmissions = await Submission.countDocuments({ status: 'rejected' });
-    
+
     const categoryStats = await Submission.aggregate([
       { $group: { _id: '$category', count: { $sum: 1 } } },
       { $sort: { count: -1 } }
@@ -447,14 +448,14 @@ app.get('/api/data/stats', async (req, res) => {
 app.get('/api/data/export', async (req, res) => {
   try {
     const { format = 'json', category, status, startDate, endDate } = req.query;
-    
-    let query = {};
+
+    const query: Record<string, unknown> = {};
     if (category) query.category = category;
     if (status) query.status = status;
     if (startDate || endDate) {
-      query.createdAt = {};
-      if (startDate) query.createdAt.$gte = new Date(startDate);
-      if (endDate) query.createdAt.$lte = new Date(endDate);
+      query.createdAt = {} as { $gte?: Date; $lte?: Date };
+      if (startDate) (query.createdAt as { $gte?: Date }).$gte = new Date(startDate as string);
+      if (endDate) (query.createdAt as { $lte?: Date }).$lte = new Date(endDate as string);
     }
 
     const submissions = await Submission.find(query)
@@ -467,20 +468,23 @@ app.get('/api/data/export', async (req, res) => {
       res.json(submissions);
     } else if (format === 'csv') {
       // Convert to CSV format
-      const csvData = submissions.map(sub => ({
-        id: sub._id,
-        title: sub.title,
-        category: sub.category,
-        status: sub.status,
-        submitterName: `${sub.submittedBy.firstName} ${sub.submittedBy.lastName}`,
-        submitterEmail: sub.submittedBy.email,
-        createdAt: sub.createdAt,
-        updatedAt: sub.updatedAt
-      }));
+      const csvData = submissions.map(sub => {
+        const submittedBy = sub.submittedBy as { firstName?: string; lastName?: string; email?: string };
+        return {
+          id: sub._id,
+          title: sub.title,
+          category: sub.category,
+          status: sub.status,
+          submitterName: `${submittedBy.firstName ?? ''} ${submittedBy.lastName ?? ''}`.trim(),
+          submitterEmail: submittedBy.email ?? '',
+          createdAt: sub.createdAt,
+          updatedAt: sub.updatedAt
+        };
+      });
 
       res.setHeader('Content-Type', 'text/csv');
       res.setHeader('Content-Disposition', 'attachment; filename=submissions.csv');
-      
+
       // Simple CSV generation
       const headers = Object.keys(csvData[0] || {}).join(',');
       const rows = csvData.map(row => Object.values(row).join(','));

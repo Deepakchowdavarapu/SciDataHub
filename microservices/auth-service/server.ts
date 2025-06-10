@@ -1,9 +1,9 @@
-import express from 'express';
+import express, { Request, Response } from 'express';
 import cors from 'cors';
 import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
-import connectDB from '../shared/utils/database.ts';
-import User from '../shared/models/User.ts';
+import jwt, { JwtPayload } from 'jsonwebtoken';
+import connectDB from '../../shared/utils/database';
+import User from '../../shared/models/User';
 
 const app = express();
 const PORT = process.env.AUTH_SERVICE_PORT || 3001;
@@ -21,12 +21,12 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-jwt-secret-key-here';
 // Routes
 
 // Health check
-app.get('/health', (req, res) => {
+app.get('/health', (req: Request, res: Response) => {
   res.json({ status: 'Auth Service is running', timestamp: new Date().toISOString() });
 });
 
 // Register user
-app.post('/api/auth/register', async (req, res) => {
+app.post('/api/auth/register', async (req: Request, res: Response) => {
   try {
     const { email, password, firstName, lastName, role, organization } = req.body;
 
@@ -41,7 +41,7 @@ app.post('/api/auth/register', async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
     // Set permissions based on role
-    let permissions = ['create_submission'];
+    const permissions: string[] = ['create_submission'];
     if (role === 'reviewer') {
       permissions.push('review_submission');
     } else if (role === 'admin') {
@@ -63,14 +63,14 @@ app.post('/api/auth/register', async (req, res) => {
 
     // Generate JWT token
     const token = jwt.sign(
-      { 
-        userId: user._id, 
-        email: user.email, 
+      {
+        userId: user._id,
+        email: user.email,
         role: user.role,
         permissions: user.permissions
       },
       JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+      { expiresIn: process.env.JWT_EXPIRES_IN || '7d' } as jwt.SignOptions
     );
 
     res.status(201).json({
@@ -93,7 +93,7 @@ app.post('/api/auth/register', async (req, res) => {
 });
 
 // Login user
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
 
@@ -120,14 +120,14 @@ app.post('/api/auth/login', async (req, res) => {
 
     // Generate JWT token
     const token = jwt.sign(
-      { 
-        userId: user._id, 
-        email: user.email, 
+      {
+        userId: user._id,
+        email: user.email,
         role: user.role,
         permissions: user.permissions
       },
       JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+      { expiresIn: process.env.JWT_EXPIRES_IN || '7d' } as jwt.SignOptions
     );
 
     res.json({
@@ -151,7 +151,7 @@ app.post('/api/auth/login', async (req, res) => {
 });
 
 // Verify token
-app.post('/api/auth/verify', async (req, res) => {
+app.post('/api/auth/verify', async (req: Request, res: Response) => {
   try {
     const { token } = req.body;
 
@@ -159,8 +159,8 @@ app.post('/api/auth/verify', async (req, res) => {
       return res.status(401).json({ message: 'No token provided' });
     }
 
-    const decoded = jwt.verify(token, JWT_SECRET);
-    const user = await User.findById(decoded.userId).select('-password');
+    const decoded = jwt.verify(token, JWT_SECRET) as JwtPayload;
+    const user = await User.findById((decoded as JwtPayload).userId).select('-password');
 
     if (!user || !user.isActive) {
       return res.status(401).json({ message: 'Invalid token' });
@@ -185,7 +185,7 @@ app.post('/api/auth/verify', async (req, res) => {
 });
 
 // Get user profile
-app.get('/api/auth/profile/:userId', async (req, res) => {
+app.get('/api/auth/profile/:userId', async (req: Request, res: Response) => {
   try {
     const user = await User.findById(req.params.userId).select('-password');
     if (!user) {
@@ -200,10 +200,10 @@ app.get('/api/auth/profile/:userId', async (req, res) => {
 });
 
 // Update user profile
-app.put('/api/auth/profile/:userId', async (req, res) => {
+app.put('/api/auth/profile/:userId', async (req: Request, res: Response) => {
   try {
     const { firstName, lastName, organization, bio } = req.body;
-    
+
     const user = await User.findByIdAndUpdate(
       req.params.userId,
       { firstName, lastName, organization, bio },
@@ -222,11 +222,14 @@ app.put('/api/auth/profile/:userId', async (req, res) => {
 });
 
 // Get all users (admin only)
-app.get('/api/auth/users', async (req, res) => {
+app.get('/api/auth/users', async (req: Request, res: Response) => {
   try {
-    const { page = 1, limit = 10, role, search } = req.query;
-    
-    let query = {};
+    const { page = 1, limit = 10, role, search } = req.query as { page?: string, limit?: string, role?: string, search?: string };
+
+    const pageNum = parseInt(page as string, 10) || 1;
+    const limitNum = parseInt(limit as string, 10) || 10;
+
+    const query: Record<string, unknown> = {};
     if (role) query.role = role;
     if (search) {
       query.$or = [
@@ -238,16 +241,16 @@ app.get('/api/auth/users', async (req, res) => {
 
     const users = await User.find(query)
       .select('-password')
-      .limit(limit * 1)
-      .skip((page - 1) * limit)
+      .limit(limitNum)
+      .skip((pageNum - 1) * limitNum)
       .sort({ createdAt: -1 });
 
     const total = await User.countDocuments(query);
 
     res.json({
       users,
-      totalPages: Math.ceil(total / limit),
-      currentPage: page,
+      totalPages: Math.ceil(total / limitNum),
+      currentPage: pageNum,
       total
     });
   } catch (error) {

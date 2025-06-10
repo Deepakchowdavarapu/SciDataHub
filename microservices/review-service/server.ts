@@ -1,8 +1,8 @@
-import express from 'express';
+import express, { Request, Response } from 'express';
 import cors from 'cors';
-import connectDB from '../shared/utils/database.js';
-import Submission from '../shared/models/Submission.js';
-import User from '../shared/models/User.js';
+import connectDB from '../../shared/utils/database.js';
+import Submission from '../../shared/models/Submission.js';
+import User from '../../shared/models/User.js';
 
 const app = express();
 const PORT = process.env.REVIEW_SERVICE_PORT || 3003;
@@ -17,13 +17,23 @@ connectDB();
 // Routes
 
 // Health check
-app.get('/health', (req, res) => {
+app.get('/health', (req: Request, res: Response) => {
   res.json({ status: 'Review Service is running', timestamp: new Date().toISOString() });
 });
 
 // Get submissions pending review
-app.get('/api/review/pending', async (req, res) => {
+app.get('/api/review/pending', async (req: Request, res: Response) => {
   try {
+    type PendingQuery = {
+      page?: string | number;
+      limit?: string | number;
+      category?: string;
+      submitterType?: string;
+      validationStatus?: string;
+      sortBy?: string;
+      sortOrder?: string;
+    };
+
     const {
       page = 1,
       limit = 10,
@@ -32,35 +42,37 @@ app.get('/api/review/pending', async (req, res) => {
       validationStatus,
       sortBy = 'createdAt',
       sortOrder = 'asc'
-    } = req.query;
+    } = req.query as PendingQuery;
 
-    let query = {
+    const query: Record<string, unknown> = {
       status: { $in: ['pending', 'under_review'] }
     };
-    
     if (category) query.category = category;
     if (submitterType) query.submitterType = submitterType;
     if (validationStatus) query.validationStatus = validationStatus;
 
-    const sort = {};
-    sort[sortBy] = sortOrder === 'desc' ? -1 : 1;
+    const sort: Record<string, 1 | -1> = {};
+    sort[typeof sortBy === 'string' ? sortBy : 'createdAt'] = sortOrder === 'desc' ? -1 : 1;
+
+    const pageNum = typeof page === 'string' ? parseInt(page, 10) : Number(page);
+    const limitNum = typeof limit === 'string' ? parseInt(limit, 10) : Number(limit);
 
     const submissions = await Submission.find(query)
       .populate('submittedBy', 'firstName lastName email organization')
       .populate('reviewedBy', 'firstName lastName email')
-      .limit(limit * 1)
-      .skip((page - 1) * limit)
+      .limit(limitNum)
+      .skip((pageNum - 1) * limitNum)
       .sort(sort);
 
     const total = await Submission.countDocuments(query);
 
     res.json({
       submissions,
-      totalPages: Math.ceil(total / limit),
-      currentPage: parseInt(page),
+      totalPages: Math.ceil(total / limitNum),
+      currentPage: pageNum,
       total,
-      hasNext: page * limit < total,
-      hasPrev: page > 1
+      hasNext: pageNum * limitNum < total,
+      hasPrev: pageNum > 1
     });
   } catch (error) {
     console.error('Pending submissions fetch error:', error);
@@ -69,7 +81,7 @@ app.get('/api/review/pending', async (req, res) => {
 });
 
 // Assign submission for review
-app.post('/api/review/assign/:submissionId', async (req, res) => {
+app.post('/api/review/assign/:submissionId', async (req: Request, res: Response) => {
   try {
     const { submissionId } = req.params;
     const { reviewerId } = req.body;
@@ -108,7 +120,7 @@ app.post('/api/review/assign/:submissionId', async (req, res) => {
 });
 
 // Submit review decision
-app.post('/api/review/submit/:submissionId', async (req, res) => {
+app.post('/api/review/submit/:submissionId', async (req: Request, res: Response) => {
   try {
     const { submissionId } = req.params;
     const { reviewerId, decision, comments, suggestedChanges } = req.body;
@@ -130,7 +142,7 @@ app.post('/api/review/submit/:submissionId', async (req, res) => {
       return res.status(404).json({ message: 'Submission not found' });
     }
 
-    if (submission.status !== 'under_review' || submission.reviewedBy.toString() !== reviewerId) {
+    if (submission.status !== 'under_review' || !(submission.reviewedBy && submission.reviewedBy.toString() === reviewerId)) {
       return res.status(400).json({ message: 'You are not authorized to review this submission' });
     }
 
@@ -138,7 +150,7 @@ app.post('/api/review/submit/:submissionId', async (req, res) => {
     submission.status = decision;
     submission.reviewComments = comments;
     submission.reviewDate = new Date();
-    
+
     // If approved, mark as public if it was intended to be
     if (decision === 'approved' && submission.isPublic) {
       submission.isPublic = true;
@@ -166,9 +178,18 @@ app.post('/api/review/submit/:submissionId', async (req, res) => {
 });
 
 // Get submissions reviewed by a specific reviewer
-app.get('/api/review/reviewed/:reviewerId', async (req, res) => {
+app.get('/api/review/reviewed/:reviewerId', async (req: Request, res: Response) => {
   try {
     const { reviewerId } = req.params;
+    type ReviewedQuery = {
+      page?: string | number;
+      limit?: string | number;
+      status?: string;
+      category?: string;
+      startDate?: string;
+      endDate?: string;
+    };
+
     const {
       page = 1,
       limit = 10,
@@ -176,31 +197,32 @@ app.get('/api/review/reviewed/:reviewerId', async (req, res) => {
       category,
       startDate,
       endDate
-    } = req.query;
+    } = req.query as ReviewedQuery;
 
-    let query = { reviewedBy: reviewerId };
-    
-    if (status) query.status = status;
-    if (category) query.category = category;
-    
+    const query: Record<string, unknown> = { reviewedBy: reviewerId };
+    if (status) (query as Record<string, unknown>).status = status;
+    if (category) (query as Record<string, unknown>).category = category;
     if (startDate || endDate) {
-      query.reviewDate = {};
-      if (startDate) query.reviewDate.$gte = new Date(startDate);
-      if (endDate) query.reviewDate.$lte = new Date(endDate);
+      (query as Record<string, unknown>).reviewDate = {};
+      if (startDate && typeof startDate === 'string') ((query as Record<string, unknown>).reviewDate as { $gte?: Date }).$gte = new Date(startDate);
+      if (endDate && typeof endDate === 'string') ((query as Record<string, unknown>).reviewDate as { $lte?: Date }).$lte = new Date(endDate);
     }
+
+    const pageNum = typeof page === 'string' ? parseInt(page, 10) : Number(page);
+    const limitNum = typeof limit === 'string' ? parseInt(limit, 10) : Number(limit);
 
     const submissions = await Submission.find(query)
       .populate('submittedBy', 'firstName lastName email organization')
-      .limit(limit * 1)
-      .skip((page - 1) * limit)
+      .limit(limitNum)
+      .skip((pageNum - 1) * limitNum)
       .sort({ reviewDate: -1 });
 
     const total = await Submission.countDocuments(query);
 
     res.json({
       submissions,
-      totalPages: Math.ceil(total / limit),
-      currentPage: parseInt(page),
+      totalPages: Math.ceil(total / limitNum),
+      currentPage: pageNum,
       total
     });
   } catch (error) {
@@ -210,18 +232,23 @@ app.get('/api/review/reviewed/:reviewerId', async (req, res) => {
 });
 
 // Get review statistics
-app.get('/api/review/stats', async (req, res) => {
+app.get('/api/review/stats', async (req: Request, res: Response) => {
   try {
-    const { reviewerId, startDate, endDate } = req.query;
+    type StatsQuery = {
+      reviewerId?: string;
+      startDate?: string;
+      endDate?: string;
+    };
+    const { reviewerId, startDate, endDate } = req.query as StatsQuery;
 
-    let dateQuery = {};
+    const dateQuery: Record<string, unknown> = {};
     if (startDate || endDate) {
-      dateQuery.reviewDate = {};
-      if (startDate) dateQuery.reviewDate.$gte = new Date(startDate);
-      if (endDate) dateQuery.reviewDate.$lte = new Date(endDate);
+      dateQuery.reviewDate = {} as { $gte?: Date; $lte?: Date };
+      if (startDate) (dateQuery.reviewDate as { $gte?: Date }).$gte = new Date(startDate as string);
+      if (endDate) (dateQuery.reviewDate as { $lte?: Date }).$lte = new Date(endDate as string);
     }
 
-    let baseQuery = dateQuery;
+    const baseQuery: Record<string, unknown> = { ...dateQuery };
     if (reviewerId) {
       baseQuery.reviewedBy = reviewerId;
     }
@@ -321,7 +348,7 @@ app.get('/api/review/stats', async (req, res) => {
     ]);
 
     // Top reviewers (if not filtering by specific reviewer)
-    let topReviewers = [];
+    let topReviewers: Record<string, unknown>[] = [];
     if (!reviewerId) {
       topReviewers = await Submission.aggregate([
         {
@@ -391,7 +418,7 @@ app.get('/api/review/stats', async (req, res) => {
 });
 
 // Batch approve/reject submissions
-app.post('/api/review/batch', async (req, res) => {
+app.post('/api/review/batch', async (req: Request, res: Response) => {
   try {
     const { submissionIds, decision, comments, reviewerId } = req.body;
 
@@ -433,7 +460,7 @@ app.post('/api/review/batch', async (req, res) => {
 });
 
 // Get submission details for review
-app.get('/api/review/submission/:submissionId', async (req, res) => {
+app.get('/api/review/submission/:submissionId', async (req: Request, res: Response) => {
   try {
     const submission = await Submission.findById(req.params.submissionId)
       .populate('submittedBy', 'firstName lastName email organization')
@@ -448,16 +475,16 @@ app.get('/api/review/submission/:submissionId', async (req, res) => {
       dataIntegrity: {
         hasValidationErrors: submission.validationErrors.length > 0,
         errorCount: submission.validationErrors.length,
-        warningCount: submission.validationErrors.filter(e => e.severity === 'warning').length
+        warningCount: submission.validationErrors.filter((e: { severity?: string | null }) => typeof e.severity === 'string' && e.severity === 'warning').length
       },
       submissionAge: {
-        days: Math.floor((new Date() - submission.createdAt) / (1000 * 60 * 60 * 24)),
-        hours: Math.floor((new Date() - submission.createdAt) / (1000 * 60 * 60))
+        days: Math.floor((new Date().getTime() - new Date(submission.createdAt).getTime()) / (1000 * 60 * 60 * 24)),
+        hours: Math.floor((new Date().getTime() - new Date(submission.createdAt).getTime()) / (1000 * 60 * 60))
       },
       dataSize: {
         recordCount: Array.isArray(submission.data) ? submission.data.length : 1,
-        fields: Array.isArray(submission.data) && submission.data.length > 0 
-          ? Object.keys(submission.data[0]).length 
+        fields: Array.isArray(submission.data) && submission.data.length > 0
+          ? Object.keys(submission.data[0]).length
           : Object.keys(submission.data || {}).length
       }
     };
@@ -473,7 +500,7 @@ app.get('/api/review/submission/:submissionId', async (req, res) => {
 });
 
 // Release submission from review (unassign)
-app.post('/api/review/release/:submissionId', async (req, res) => {
+app.post('/api/review/release/:submissionId', async (req: Request, res: Response) => {
   try {
     const { submissionId } = req.params;
     const { reviewerId } = req.body;
@@ -487,7 +514,7 @@ app.post('/api/review/release/:submissionId', async (req, res) => {
       return res.status(400).json({ message: 'Submission is not under review' });
     }
 
-    if (submission.reviewedBy.toString() !== reviewerId) {
+    if (submission.status !== 'under_review' || !(submission.reviewedBy && submission.reviewedBy.toString() === reviewerId)) {
       return res.status(400).json({ message: 'You are not assigned to review this submission' });
     }
 
