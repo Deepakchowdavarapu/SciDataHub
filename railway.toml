@@ -6,8 +6,6 @@ buildCommand = "npm install"
 startCommand = "node microservices/review-service/server.js"
 healthcheckPath = "/health"
 healthcheckTimeout = 100
-restartPolicyType = "on-failure"
-restartPolicyMaxRetries = 10
 
 [env]
 NODE_ENV = "production"
