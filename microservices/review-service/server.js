@@ -1,8 +1,8 @@
 import express from 'express';
 import cors from 'cors';
-import connectDB from '../../shared/utils/database.js';
-import Submission from '../../shared/models/Submission.js';
-import User from '../../shared/models/User.js';
+import connectDB from '../shared/utils/database.js';
+import Submission from '../shared/models/Submission.js';
+import User from '../shared/models/User.js';
 
 const app = express();
 const PORT = process.env.REVIEW_SERVICE_PORT || 3003;

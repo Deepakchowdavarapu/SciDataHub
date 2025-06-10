@@ -6,8 +6,8 @@ import XLSX from 'xlsx';
 import fs from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import connectDB from '../../shared/utils/database.js';
-import Submission from '../../shared/models/Submission.js';
+import connectDB from '../shared/utils/database.js';
+import Submission from '../shared/models/Submission.js';
 
 const app = express();
 const PORT = process.env.DATA_SERVICE_PORT || 3002;
