@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const submissionSchema = new mongoose.Schema({
   title: {
@@ -100,4 +100,4 @@ submissionSchema.index({ category: 1 });
 submissionSchema.index({ createdAt: -1 });
 submissionSchema.index({ 'metadata.timestamp': -1 });
 
-module.exports = mongoose.model('Submission', submissionSchema); 
+export default mongoose.model('Submission', submissionSchema);
