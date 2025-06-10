@@ -3,8 +3,18 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { FiDatabase, FiMenu, FiX, FiUser, FiSettings, FiLogOut, FiHome, FiUpload, FiBarChart, FiUsers } from 'react-icons/fi';
+import { FiDatabase, FiMenu, FiX, FiUser, FiSettings, FiLogOut, FiUpload, FiBarChart, FiUsers } from 'react-icons/fi';
 import { getUserData, getAuthToken } from '@/lib/api';
+import { IconType } from 'react-icons';
+
+interface NavigationItem {
+  name: string;
+  href: string;
+  icon: IconType;
+  auth?: boolean;
+  public?: boolean;
+  roles?: string[];
+}
 
 interface User {
   id: string;
@@ -38,8 +48,8 @@ const Navigation: React.FC = () => {
     router.push('/');
   };
 
-  const navigationItems = [
-    { name: 'Home', href: '/', icon: FiHome, public: true },
+  const navigationItems: NavigationItem[] = [
+    // { name: 'Home', href: '/', icon: FiHome, public: true },
     { name: 'Dashboard', href: '/dashboard', icon: FiBarChart, auth: true },
     { name: 'Submit Data', href: '/dashboard/submit', icon: FiUpload, auth: true },
     { name: 'Review', href: '/dashboard/review', icon: FiUsers, auth: true, roles: ['reviewer', 'admin'] },

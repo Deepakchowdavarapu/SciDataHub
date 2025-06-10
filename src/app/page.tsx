@@ -169,7 +169,7 @@ export default function HomePage() {
               Built for Every Type of Contributor
             </h2>
             <p className="mt-4 max-w-2xl mx-auto text-xl text-gray-500">
-              Whether you're a professional researcher or a citizen scientist, we have tools for you.
+              Whether you&apos;re a professional researcher or a citizen scientist, we have tools for you.
             </p>
           </div>
 

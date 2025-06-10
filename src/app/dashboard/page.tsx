@@ -75,7 +75,7 @@ export default function DashboardPage() {
 
         {/* Quick Actions */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow-sm border p-6 hover:shadow-md transition-shadow">
+          <div className="bg-white rounded-lg shadow-sm border p-6 hover:shadow-md transition-all duration-500 hover:scale-105 hover:shadow-lg">
             <div className="flex items-center">
               <div className="flex-shrink-0">
                 <FiPlus className="h-8 w-8 text-indigo-600" />
@@ -95,7 +95,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm border p-6 hover:shadow-md transition-shadow">
+          <div className="bg-white rounded-lg shadow-sm border p-6 hover:shadow-md transition-all duration-500 hover:scale-105 hover:shadow-lg">
             <div className="flex items-center">
               <div className="flex-shrink-0">
                 <FiBarChart className="h-8 w-8 text-green-600" />
@@ -115,7 +115,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm border p-6 hover:shadow-md transition-shadow">
+          <div className="bg-white rounded-lg shadow-sm border p-6 hover:shadow-md transition-all duration-500 hover:scale-105 hover:shadow-lg">
             <div className="flex items-center">
               <div className="flex-shrink-0">
                 <FiFileText className="h-8 w-8 text-blue-600" />
@@ -136,7 +136,7 @@ export default function DashboardPage() {
           </div>
 
           {user.permissions.includes('review_submission') ? (
-            <div className="bg-white rounded-lg shadow-sm border p-6 hover:shadow-md transition-shadow">
+            <div className="bg-white rounded-lg shadow-sm border p-6 hover:shadow-md transition-all duration-500 hover:scale-105 hover:shadow-lg">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
                   <FiClock className="h-8 w-8 text-orange-600" />
@@ -156,7 +156,7 @@ export default function DashboardPage() {
               </div>
             </div>
           ) : (
-            <div className="bg-white rounded-lg shadow-sm border p-6 hover:shadow-md transition-shadow">
+            <div className="bg-white rounded-lg shadow-sm border p-6 hover:shadow-md transition-all duration-500 hover:scale-105 hover:shadow-lg">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
                   <FiUsers className="h-8 w-8 text-purple-600" />

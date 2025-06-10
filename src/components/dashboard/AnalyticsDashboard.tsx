@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { FiDatabase, FiUsers, FiCheckCircle, FiClock, FiTrendingUp, FiEye, FiDownload, FiBarChart2 } from 'react-icons/fi';
+import { FiDatabase, FiUsers, FiCheckCircle, FiClock, FiTrendingUp, FiEye, FiDownload, } from 'react-icons/fi';
 import Card, { CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 
 interface AnalyticsData {
