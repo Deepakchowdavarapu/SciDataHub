@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "build": "mkdir -p shared && cp -r ../../shared/* shared/",
+    "build": "mkdir -p shared && cp -r /opt/render/project/src/shared/* shared/",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": ["review", "validation", "microservice", "scidatahub"],
