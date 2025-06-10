@@ -2,8 +2,8 @@ import express from 'express';
 import cors from 'cors';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import connectDB from '../shared/utils/database.js';
-import User from '../shared/models/User.js';
+import connectDB from '../shared/utils/database.ts';
+import User from '../shared/models/User.ts';
 
 const app = express();
 const PORT = process.env.AUTH_SERVICE_PORT || 3001;

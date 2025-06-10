@@ -3,10 +3,10 @@
   "version": "1.0.0",
   "type": "module",
   "description": "Data management service for SciDataHub",
-  "main": "server.js",
+  "main": "server.ts",
   "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js",
+    "start": "node server.ts",
+    "dev": "nodemon server.ts",
     "build": "ln -sf /opt/render/project/src/shared ./shared",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
