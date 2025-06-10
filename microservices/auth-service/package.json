@@ -1,6 +1,7 @@
 {
   "name": "scidatahub-auth-service",
   "version": "1.0.0",
+  "type": "module",
   "description": "Authentication service for SciDataHub",
   "main": "server.js",
   "scripts": {

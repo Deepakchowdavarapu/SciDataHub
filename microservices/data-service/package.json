@@ -1,6 +1,7 @@
 {
   "name": "scidatahub-data-service",
   "version": "1.0.0",
+  "type": "module",
   "description": "Data management service for SciDataHub",
   "main": "server.js",
   "scripts": {

@@ -1,14 +1,13 @@
-const express = require('express');
-const cors = require('cors');
-const multer = require('multer');
-const csv = require('csv-parser');
-const XLSX = require('xlsx');
-const fs = require('fs');
-const path = require('path');
-const { v4: uuidv4 } = require('uuid');
-const connectDB = require('../../shared/utils/database');
-const Submission = require('../../shared/models/Submission');
-const User = require('../../shared/models/User');
+import express from 'express';
+import cors from 'cors';
+import multer from 'multer';
+import csv from 'csv-parser';
+import XLSX from 'xlsx';
+import fs from 'fs';
+import path from 'path';
+import { v4 as uuidv4 } from 'uuid';
+import connectDB from '../../shared/utils/database.js';
+import Submission from '../../shared/models/Submission.js';
 
 const app = express();
 const PORT = process.env.DATA_SERVICE_PORT || 3002;
@@ -124,7 +123,7 @@ const parseExcelFile = (filePath) => {
     const data = XLSX.utils.sheet_to_json(worksheet);
     return data;
   } catch (error) {
-    throw new Error('Failed to parse Excel file');
+    throw new Error(`Failed to parse Excel file: ${error.message}`);
   }
 };
 

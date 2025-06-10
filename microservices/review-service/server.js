@@ -1,8 +1,8 @@
-const express = require('express');
-const cors = require('cors');
-const connectDB = require('../../shared/utils/database');
-const Submission = require('../../shared/models/Submission');
-const User = require('../../shared/models/User');
+import express from 'express';
+import cors from 'cors';
+import connectDB from '../../shared/utils/database.js';
+import Submission from '../../shared/models/Submission.js';
+import User from '../../shared/models/User.js';
 
 const app = express();
 const PORT = process.env.REVIEW_SERVICE_PORT || 3003;
