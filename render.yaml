@@ -1,0 +1,77 @@
+services:
+  # Auth Service
+  - type: web
+    name: scidatahub-auth-service
+    env: node
+    plan: free
+    buildCommand: cd microservices/auth-service && npm install
+    startCommand: cd microservices/auth-service && npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: AUTH_SERVICE_PORT
+        value: 10000
+      - key: MONGODB_URI
+        fromDatabase:
+          name: scidatahub-mongodb
+          property: connectionString
+      - key: DATABASE_NAME
+        value: scidatahub
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 7d
+
+  # Data Service
+  - type: web
+    name: scidatahub-data-service
+    env: node
+    plan: free
+    buildCommand: cd microservices/data-service && npm install
+    startCommand: cd microservices/data-service && npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATA_SERVICE_PORT
+        value: 10000
+      - key: MONGODB_URI
+        fromDatabase:
+          name: scidatahub-mongodb
+          property: connectionString
+      - key: DATABASE_NAME
+        value: scidatahub
+      - key: JWT_SECRET
+        sync: false
+      - key: MAX_FILE_SIZE
+        value: 10485760
+      - key: UPLOAD_DIR
+        value: uploads
+
+  # Review Service
+  - type: web
+    name: scidatahub-review-service
+    env: node
+    plan: free
+    buildCommand: cd microservices/review-service && npm install
+    startCommand: cd microservices/review-service && npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: REVIEW_SERVICE_PORT
+        value: 10000
+      - key: MONGODB_URI
+        fromDatabase:
+          name: scidatahub-mongodb
+          property: connectionString
+      - key: DATABASE_NAME
+        value: scidatahub
+      - key: JWT_SECRET
+        sync: false
+
+databases:
+  - name: scidatahub-mongodb
+    databaseName: scidatahub
+    user: scidatahub_user 
